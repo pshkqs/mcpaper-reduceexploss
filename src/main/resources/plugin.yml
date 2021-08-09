@@ -1,0 +1,8 @@
+name: ReduceXpLoss
+version: ${project.version}
+main: github.pashamaladec.reducexploss.ReduceXpLoss
+api-version: 1.16
+
+commands:
+  reload-xploss-config:
+    permission: pashamaladec
