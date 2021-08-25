@@ -1,8 +1,6 @@
 package github.pashamaladec.reducexploss;
 
 import github.pashamaladec.reducexploss.config.Config;
-import io.papermc.paper.chat.ChatFormatter;
-import net.md_5.bungee.api.ChatMessageType;
 import org.bukkit.ChatColor;
 import org.bukkit.entity.Player;
 import org.bukkit.event.EventHandler;
@@ -34,7 +32,10 @@ public final class ReduceXpLoss extends JavaPlugin implements Listener
 			config.save();
 		}
 		
-		getCommand("reload-xploss-config").setExecutor(new ReloadConfigFile(config));
+		var command = getCommand("reload-xploss-config");
+		
+		if(command != null)
+			command.setExecutor(new ReloadConfigFile(config));
 		getServer().getPluginManager().registerEvents(this, this);
 	}
 	
@@ -47,28 +48,32 @@ public final class ReduceXpLoss extends JavaPlugin implements Listener
 		
 		event.setShouldDropExperience(false);
 		
-		var oldLevel = getTotal(player);
-		
-		player.sendMessage(getToLevel(player) + "");
-		
-		var message = ChatColor.GRAY + "" + player.getLevel() + "L " + getToLevel(player) + "P (" + oldLevel + "P) ->> ";
-		
-		var reduced = getReducedExp(player);
-		var diff = reduced - oldLevel;
-		setExp(player, reduced);
+		var toReduce = getReducedExp(player);
+		var oldPlayer = event.getEntity().getPlayer();
+		setExp(player, toReduce);
+		sendNotify(player, oldPlayer, toReduce);
 		
 		event.setKeepLevel(true);
-		message += player.getLevel() + "L " + getToLevel(player) + "P (" + getTotal(player) + "P)";
-		
-		if(diff < 0)
-			message += " | " + ChatColor.DARK_RED + (reduced - oldLevel) + "P";
-		else if(diff > 0)
-			message += " | " + ChatColor.DARK_GREEN + "+" + (reduced - oldLevel) + "P";
-		else
+	}
+	
+	private void sendNotify(Player player, Player oldPlayer, int toReduce)
+	{
+		if(player.getUniqueId() != oldPlayer.getUniqueId())
 			return;
 		
-		player.sendMessage(message);
+		var oldLevel = getTotalPoints(oldPlayer);
+		var diff = toReduce - oldLevel;
 		
+		var message = ChatColor.GRAY + "" + oldPlayer.getLevel() + "L " + getPointsToLevel(oldPlayer) + "P (" + oldLevel + "P) ->> ";
+		message += player.getLevel() + "L " + getPointsToLevel(player) + "P (" + getTotalPoints(player) + "P)";
+		
+		if(diff > 0)
+			message += " | " + ChatColor.DARK_GREEN + "+" + (toReduce - oldLevel) + "P";
+		
+		if(diff < 0)
+			message += " | " + ChatColor.DARK_RED + (toReduce - oldLevel) + "P";
+		
+		player.sendMessage(message);
 	}
 	
 	private int getReducedExp(Player player)
@@ -81,9 +86,8 @@ public final class ReduceXpLoss extends JavaPlugin implements Listener
 				multiplier = (float) config.getConfig().getDouble("above-" + i);
 		}
 		
-		log("applying " + multiplier);
-		player.sendMessage("applying " + multiplier);
-		return Math.round(getTotal(player) * multiplier);
+		log(player.getName() + "(" + player.getUniqueId() + ") - applying " + multiplier * 100 + "%");
+		return Math.round(getTotalPoints(player) * multiplier);
 	}
 	
 	private void setExp(Player player, int exp)
@@ -95,22 +99,22 @@ public final class ReduceXpLoss extends JavaPlugin implements Listener
 		player.giveExp(exp, false);
 	}
 	
-	private int getToLevel(Player player)
+	private int getPointsToLevel(Player player)
 	{
 		return Math.round(player.getExpToLevel() * player.getExp());
 	}
 	
-	private int getTotal(Player player)
+	private int getTotalPoints(Player player)
 	{
 		var level = player.getLevel();
 		
 		if(level <= 16)
-			return Math.round((level * level + 6f * level) + getToLevel(player));
+			return Math.round((level * level + 6f * level) + getPointsToLevel(player));
 		
 		if (level <= 31)
-			return Math.round((2.5f * level * level - 40.5f * level + 360f) + getToLevel(player));
+			return Math.round((2.5f * level * level - 40.5f * level + 360f) + getPointsToLevel(player));
 		
-		return Math.round((4.5f * level * level - 162.5f * level + 2220f) + getToLevel(player));
+		return Math.round((4.5f * level * level - 162.5f * level + 2220f) + getPointsToLevel(player));
 	}
 	
 	public static void log(Level level, String message)
